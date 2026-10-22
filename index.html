@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UNIQLO Canada Expansion: Neighbourhood Income & Aritzia Gap Analysis</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    #map { width: 100%; height: 100vh; background: #f4f6f8; }
+    
+    /* Presentation Header Overlay */
+    .header-box {
+      position: absolute; top: 15px; left: 60px; z-index: 1000;
+      background: rgba(255, 255, 255, 0.95); padding: 14px 22px;
+      border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      border-left: 6px solid #FF0000; max-width: 460px;
+    }
+    .header-box h1 { margin: 0 0 5px 0; font-size: 18px; color: #111; }
+    .header-box p { margin: 0; font-size: 12.5px; color: #555; }
+
+    /* City Quick-Jump Buttons for PowerPoint Slides */
+    .city-nav {
+      position: absolute; top: 15px; right: 20px; z-index: 1000;
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .city-btn {
+      background: #111; color: #fff; border: none; padding: 8px 14px;
+      border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: 0.2s;
+    }
+    .city-btn:hover { background: #FF0000; }
+
+    /* Legend Styling */
+    .legend {
+      background: rgba(255, 255, 255, 0.96); padding: 14px 18px;
+      border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      line-height: 22px; color: #222; font-size: 12.5px;
+    }
+    .legend h4 { margin: 0 0 8px 0; font-size: 13.5px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+    .legend i {
+      width: 16px; height: 16px; float: left; margin-right: 10px;
+      opacity: 0.85; border-radius: 3px; margin-top: 3px;
+    }
+    .pin-dot {
+      display: inline-block; width: 12px; height: 12px;
+      border-radius: 50%; margin-right: 10px; border: 2px solid #fff;
+      box-shadow: 0 0 3px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-box">
+    <h1>UNIQLO Expansion & Income Map</h1>
+    <p>Comparing <strong>Aritzia</strong> locations vs. <strong>UNIQLO</strong> white-space inside high-income Canadian neighbourhoods (Census Household Income Overlay).</p>
+  </div>
+
+  <div class="city-nav">
+    <button class="city-btn" onclick="flyToCity(49.2827, -123.1207, 12)">Vancouver Metro</button>
+    <button class="city-btn" onclick="flyToCity(43.6850, -79.3888, 12)">Toronto Core</button>
+    <button class="city-btn" onclick="flyToCity(43.0150, -81.2750, 12)">London (Masonville)</button>
+    <button class="city-btn" onclick="flyToCity(44.6483, -63.6000, 13)">Halifax Peninsula</button>
+    <button class="city-btn" onclick="flyToCity(50.9984, -114.0700, 11)">Calgary</button>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Initialize Map centered on Vancouver by default
+    const map = L.map('map').setView([49.2827, -123.1207], 12);
+
+    // Clean CartoDB Positron Basemap (Ideal for PowerPoint decks)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO | Statistics Canada Income Data'
+    }).addTo(map);
+
+    function flyToCity(lat, lng, zoom) {
+      map.flyTo([lat, lng], zoom, { duration: 1.2 });
+    }
+
+    // Color scale for Average Household Income
+    function getIncomeColor(income) {
+      return income >= 220000 ? '#00441b' :
+             income >= 175000 ? '#1b7837' :
+             income >= 140000 ? '#5aae61' :
+             income >= 115000 ? '#a6dba0' :
+                                '#d9f0d3';
+    }
+
+    // High-Income Neighbourhood Polygons (GeoJSON)
+    const incomeNeighbourhoods = {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "properties": { "name": "West Vancouver / Ambleside / British Properties", "avg_income": 235000, "target": "Park Royal Shopping Centre" },
+          "geometry": { "type": "Polygon", "coordinates": [[[-123.200, 49.322], [-123.125, 49.322], [-123.125, 49.365], [-123.200, 49.365], [-123.200, 49.322]]] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "Downtown Vancouver / Coal Harbour / Yaletown", "avg_income": 148000, "target": "Robson St & CF Pacific Centre" },
+          "geometry": { "type": "Polygon", "coordinates": [[[-123.145, 49.272], [-123.105, 49.272], [-123.105, 49.295], [-123.145, 49.295], [-123.145, 49.272]]] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "Oakridge / Shaughnessy / Kerrisdale (Vancouver West Side)", "avg_income": 215000, "target": "Oakridge Park" },
+          "geometry": { "type": "Polygon", "coordinates": [[[-123.165, 49.218], [-123.105, 49.218], [-123.105, 49.252], [-123.165, 49.252], [-123.165, 49.218]]] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "North Burnaby / Brentwood Town Centre", "avg_income": 135000, "target": "The Amazing Brentwood" },
+          "geometry": { "type": "Polygon", "coordinates": [[[-123.025, 49.255], [-122.980, 49.255], [-122.980, 49.285], [-123.025, 49.285], [-123.025, 49.255]]] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "Yorkville / Rosedale / Annex (Toronto)", "avg_income": 295000, "target": "Bloor Street West Flagship" },
+          "geometry": { "type": "Polygon", "coordinates": [[[-79.408, 43.665], [-79.372, 43.665], [-79.372, 43.688], [-79.408, 43.688], [-79.408, 43.665]]] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "Don Mills / Bridle Path / Leaside (Toronto)", "avg_income": 340000, "target": "CF Shops at Don Mills" },
+          "geometry": { "type": "Polygon", "coordinates": [[[-79.385, 43.715], [-79.325, 43.715], [-79.325, 43.755], [-79.385, 43.755], [-79.385, 43.715]]] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "Queen West / King West / Trinity-Bellwoods (Toronto)", "avg_income": 145000, "target": "Queen Street West" },
+          "geometry": { "type": "Polygon", "coordinates": [[[-79.415, 43.642], [-79.385, 43.642], [-79.385, 43.655], [-79.415, 43.655], [-79.415, 43.642]]] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "North London / Masonville / Sunningdale", "avg_income": 168000, "target": "CF Masonville Place" },
+          "geometry": { "type": "Polygon", "coordinates": [[[-81.310, 43.010], [-81.250, 43.010], [-81.250, 43.045], [-81.310, 43.045], [-81.310, 43.010]]] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "Halifax Peninsula (West End & South End)", "avg_income": 158000, "target": "Halifax Shopping Centre" },
+          "geometry": { "type": "Polygon", "coordinates": [[[-63.635, 44.625], [-63.565, 44.625], [-63.565, 44.660], [-63.635, 44.660], [-63.635, 44.625]]] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "South Calgary / Lake Bonavista / Willow Park", "avg_income": 182000, "target": "Southcentre Mall" },
+          "geometry": { "type": "Polygon", "coordinates": [[[-114.095, 50.925], [-114.035, 50.925], [-114.035, 50.965], [-114.095, 50.965], [-114.095, 50.925]]] }
+        }
+      ]
+    };
+
+    // Add Income Choropleth Layer
+    L.geoJSON(incomeNeighbourhoods, {
+      style: function(feature) {
+        return {
+          fillColor: getIncomeColor(feature.properties.avg_income),
+          weight: 2,
+          opacity: 1,
+          color: '#1b7837',
+          dashArray: '4',
+          fillOpacity: 0.42
+        };
+      },
+      onEachFeature: function(feature, layer) {
+        layer.bindPopup(
+          `<strong>Neighbourhood:</strong> ${feature.properties.name}<br>` +
+          `<strong>Avg Household Income:</strong> $${feature.properties.avg_income.toLocaleString()} CAD<br>` +
+          `<strong>Target Retail Node:</strong> ${feature.properties.target}`
+        );
+      }
+    }).addTo(map);
+
+    // Pin Helper Function
+    function createCircleMarker(lat, lng, color, radius = 8) {
+      return L.circleMarker([lat, lng], {
+        radius: radius,
+        fillColor: color,
+        color: '#ffffff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.95
+      });
+    }
+
+    // 1. Proposed UNIQLO Flagship/Large Target Opportunities (Gold Star/Red Border)
+    const targetOpportunities = [
+      { name: "TARGET FLAGSHIP: CF Pacific Centre / Robson St (Vancouver)", lat: 49.2825, lng: -123.1187, size: "Flagship (>20,000 sq. ft.)", income: "$148,000+", space: "Former Nordstrom upper wing & 1100/1700-block Robson spaces available" },
+      { name: "TARGET FLAGSHIP: Bloor-Yorkville (1 Bloor W / 55 Bloor W, Toronto)", lat: 43.6702, lng: -79.3888, size: "Flagship (>20,000 sq. ft.)", income: "$295,000+", space: "1 Bloor St W (9,365+ sq. ft. Q1 2027) & 1 Bloor E / 55 Bloor W podiums" },
+      { name: "TARGET LARGE: Park Royal Shopping Centre (West Vancouver)", lat: 49.3262, lng: -123.1369, size: "Large (15,000–20,000 sq. ft.)", income: "$235,000+", space: "34,000+ sq. ft. anchor restructuring vacancies (2026)" },
+      { name: "TARGET LARGE: Oakridge Park Redevelopment (Vancouver)", lat: 49.2331, lng: -123.1165, size: "Large (15,000–20,000 sq. ft.)", income: "$215,000+", space: "New luxury mall expansion concourse units" },
+      { name: "TARGET LARGE: CF Shops at Don Mills (Toronto)", lat: 43.7347, lng: -79.3458, size: "Large (15,000 sq. ft.)", income: "$340,000+", space: "Open-air lifestyle anchor suites" },
+      { name: "TARGET LARGE: Halifax Shopping Centre (Halifax, NS)", lat: 44.6483, lng: -63.6192, size: "Large (15,000–20,000 sq. ft.)", income: "$158,000+", space: "Primaris REIT large-format redevelopment wing (82% occupancy)" },
+      { name: "TARGET LARGE: CF Masonville Place (London, ON)", lat: 43.0260, lng: -81.2787, size: "Large (15,000 sq. ft.)", income: "$168,000+", space: "Anchor wing reconfiguration spaces" },
+      { name: "TARGET LARGE: The Amazing Brentwood (Burnaby, BC)", lat: 49.2665, lng: -123.0014, size: "Large (15,000 sq. ft.)", income: "$135,000+", space: "Plaza level large-format retail units" },
+      { name: "TARGET LARGE: Southcentre Mall (Calgary, AB)", lat: 50.9442, lng: -114.0650, size: "Large (15,000 sq. ft.)", income: "$182,000+", space: "Vacated department store wing space" }
+    ];
+
+    targetOpportunities.forEach(loc => {
+      L.circleMarker([loc.lat, loc.lng], {
+        radius: 11, fillColor: '#FFD700', color: '#FF0000', weight: 3, fillOpacity: 1
+      }).bindPopup(
+        `<div style="font-size:13px;">` +
+        `<strong style="color:#d00000;">★ ${loc.name}</strong><br>` +
+        `<strong>Recommended Format:</strong> ${loc.size}<br>` +
+        `<strong>Neighbourhood Avg Income:</strong> ${loc.income}<br>` +
+        `<strong>Real Estate Availability:</strong> ${loc.space}<br>` +
+        `<em>Competitor Check: Aritzia Present | UNIQLO Absent</em></div>`
+      ).addTo(map);
+    });
+
+    // 2. Existing UNIQLO Locations (Red Pins)
+    const uniqloStores = [
+      { name: "UNIQLO Metropolis at Metrotown (Flagship)", lat: 49.2269, lng: -123.0016 },
+      { name: "UNIQLO CF Richmond Centre (Large)", lat: 49.1666, lng: -123.1368 },
+      { name: "UNIQLO CF Toronto Eaton Centre (Flagship)", lat: 43.6544, lng: -79.3807 },
+      { name: "UNIQLO Yorkdale Shopping Centre (Flagship)", lat: 43.7254, lng: -79.4522 },
+      { name: "UNIQLO CF Fairview Mall (Large)", lat: 43.7778, lng: -79.3444 },
+      { name: "UNIQLO CF Chinook Centre (Flagship)", lat: 50.9984, lng: -114.0734 }
+    ];
+    uniqloStores.forEach(s => createCircleMarker(s.lat, s.lng, '#FF0000', 7).bindPopup(`<strong>${s.name}</strong>`).addTo(map));
+
+    // 3. Existing Aritzia Locations in Target Gap Zones (Black Pins)
+    const aritziaStores = [
+      { name: "Aritzia Robson St Flagship", lat: 49.2846, lng: -123.1243 },
+      { name: "Aritzia CF Pacific Centre (2027 Flagship)", lat: 49.2830, lng: -123.1195 },
+      { name: "Aritzia Park Royal", lat: 49.3268, lng: -123.1375 },
+      { name: "Aritzia Oakridge Park", lat: 49.2336, lng: -123.1172 },
+      { name: "Aritzia Kitsilano W 4th", lat: 49.2681, lng: -123.1536 },
+      { name: "Aritzia Bloor Street Flagship", lat: 43.6705, lng: -79.3895 },
+      { name: "Aritzia Queen Street West", lat: 43.6493, lng: -79.3924 },
+      { name: "Aritzia CF Shops at Don Mills", lat: 43.7352, lng: -79.3465 },
+      { name: "Aritzia CF Masonville Place", lat: 43.0265, lng: -81.2792 },
+      { name: "Aritzia Halifax Shopping Centre", lat: 44.6488, lng: -63.6198 }
+    ];
+    aritziaStores.forEach(s => createCircleMarker(s.lat, s.lng, '#111111', 6).bindPopup(`<strong>${s.name}</strong> (Competitor)`).addTo(map));
+
+    // Add Legend
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function() {
+      const div = L.DomUtil.create('div', 'legend');
+      div.innerHTML = `
+        <h4>Store & Target Pins</h4>
+        <div><span class="pin-dot" style="background:#FFD700; border-color:#FF0000;"></span><strong>Proposed UNIQLO Target</strong> (Gap)</div>
+        <div><span class="pin-dot" style="background:#111111;"></span><strong>Aritzia Boutique</strong> (Competitor)</div>
+        <div><span class="pin-dot" style="background:#FF0000;"></span><strong>Existing UNIQLO Store</strong></div>
+        <h4 style="margin-top:10px;">Avg Household Income (CAD)</h4>
+        <div><i style="background:#00441b"></i> $220,000+ (Ultra-Affluent)</div>
+        <div><i style="background:#1b7837"></i> $175,000 – $220,000</div>
+        <div><i style="background:#5aae61"></i> $140,000 – $175,000</div>
+        <div><i style="background:#a6dba0"></i> $115,000 – $140,000</div>
+      `;
+      return div;
+    };
+    legend.addTo(map);
+  </script>
+</body>
+</html>
